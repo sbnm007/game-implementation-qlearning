@@ -1,0 +1,15 @@
+# Model Files
+*.pkl
+
+#csv
+*.csv
+
+# Directories
+__pycache__/
+connect_4_visualizations/
+tictactoe_visualizations/
+
+#Environment
+venv/
+
+.~lock*

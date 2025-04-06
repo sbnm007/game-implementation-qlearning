@@ -67,14 +67,11 @@ def qlearning_move(game, q_table, epsilon=0.1):
     moves = game.get_legal_moves()
     if random.random() < epsilon:
         return random.choice(moves)
-    # choose best from Q
-    best_q = -999999
-    best_move = None
-    for m in moves:
-        sk = state + str(m)
-        if q_table.get(sk, 0) > best_q:
-            best_q = q_table.get(sk, 0)
-            best_move = m
+    
+    # Choose best move from Q-table
+    best_move = max(moves, key=lambda m: q_table.get(state + str(m), 0), default=None)
+    
+    # If no best move found (e.g., no Q-values for available moves), choose a random move
     return best_move if best_move is not None else random.choice(moves)
 
 # Agent wrappers for consistency in the evaluate/play methods

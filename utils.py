@@ -4,6 +4,7 @@ import random
 import time
 import csv
 import math
+import numpy as np
 from agents import minimax, default_agent, qlearning_move
 
 def save_q_table(q_table, filename):
@@ -19,8 +20,8 @@ def load_q_table(filename):
     print(f"No existing Q-table found at {filename}, creating new")
     return {}
 
-def train_qlearning(game_class, q_table, episodes=1000, alpha=0.1, gamma=0.9, epsilon=0.1, 
-                   opponent="random", q_player="X", depth_limit=4):
+def train_qlearning(game_class, q_table, episodes=1000, alpha=0.1, gamma=0.9, epsilon=0.1,
+                   opponent="random", q_player="X", depth_limit=4, visualizer=None):
     # Select opponent for training against
     if opponent == "default":
         opponent_func = default_agent
@@ -36,74 +37,119 @@ def train_qlearning(game_class, q_table, episodes=1000, alpha=0.1, gamma=0.9, ep
         opponent_func = minimax_ab_opponent
     else:  # random
         opponent_func = lambda game: random.choice(game.get_legal_moves())
-    
+
     # Progress tracking
     win_count = 0
     loss_count = 0
     draw_count = 0
-    
+
+    # Visualization data tracking
+    track_interval = max(1, episodes // 100)  # Track at most 100 data points
+    tracking_data = {
+        'episodes': [],
+        'wins': [],
+        'losses': [],
+        'draws': [],
+        'q_values': []
+    }
+
     for i in range(episodes):
         g = game_class()
+        episode_win = False
+        episode_loss = False
+        episode_draw = False
+
         # Play one episode
         while not g.is_terminal():
+            s = g.state_key()  # Get state before the move
             if g.current_player == q_player:  # Q-learning agent
-                s = g.state_key()
                 a = qlearning_move(g, q_table, epsilon)
-                g_copy = g.copy()
-                g_copy.make_move(a)
-                
-                reward = 0
-                if g_copy.is_terminal():
-                    w = g_copy.check_winner()
-                    if w == q_player:
-                        reward = 1
-                        win_count += 1
-                    elif w not in [None, "Draw"]:
-                        reward = -1
-                        loss_count += 1
-                    elif w == "Draw":
-                        draw_count += 1
-                
-                # Update Q
+                if a is None:
+                    break
+
+                g.make_move(a)
+
+            else:
+                move = opponent_func(g)
+                if move is None:
+                    break
+                g.make_move(move)
+
+            reward = 0
+            if g.is_terminal():
+                w = g.check_winner()
+                if w == q_player:
+                    reward = 1
+                    win_count += 1
+                    episode_win = True
+                elif w not in [None, "Draw"]:
+                    reward = -1
+                    loss_count += 1
+                    episode_loss = True
+                elif w == "Draw":
+                    draw_count += 1
+                    episode_draw = True
+
+            # Update Q
+            if g.current_player != q_player and a is not None:
                 old_q = q_table.get(s + str(a), 0)
-                ns = g_copy.state_key()
-                legal_moves = g_copy.get_legal_moves()
+                ns = g.state_key()  # Use the actual game state g
+                legal_moves = g.get_legal_moves()  # Use the actual game state g
                 future_q = max([q_table.get(ns + str(m), 0) for m in legal_moves] or [0]) if legal_moves else 0
                 new_q = old_q + alpha * (reward + gamma * future_q - old_q)
                 q_table[s + str(a)] = new_q
-                
-                # Make the real move
-                g.make_move(a)
-            else:  # Opponent
-                move = opponent_func(g)
-                g.make_move(move)
-        
+
+        # Track data for visualization
+        if i % track_interval == 0 or i == episodes - 1:
+            tracking_data['episodes'].append(i)
+            tracking_data['wins'].append(win_count)
+            tracking_data['losses'].append(loss_count)
+            tracking_data['draws'].append(draw_count)
+
         # Report progress
-        if (i+1) % (episodes // 10) == 0:
-            print(f"Training progress: {i+1}/{episodes} episodes")
+        if (i + 1) % (episodes // 10) == 0:
+            print(f"Training progress: {i + 1}/{episodes} episodes")
             print(f"Wins: {win_count}, Losses: {loss_count}, Draws: {draw_count}")
-    
+
+    # Add final Q-values to tracking data
+    tracking_data['q_values'] = list(q_table.values())
+
+    # Generate visualizations if visualizer is provided
+    if visualizer:
+        game_type = game_class.__name__.lower()
+        visualizer.save_training_progress(tracking_data, game_type, q_player, opponent)
+        visualizer.visualize_q_table(q_table, game_type, q_player)
+
     print(f"Training complete. Size of Q-table: {len(q_table)} state-actions")
     return q_table
 
+
 def play_once(game, agentX, agentO, q_tables=None, depth_limit=4):
+    print(f"Evaluating game: {game}")  # Add this line
+
     moves_made = 0
     while not game.is_terminal():
         if game.current_player == "X":
             move = agentX(game, q_tables, depth=depth_limit)
+            agent_name = agentX.__name__  # Get the agent's name
         else:
             move = agentO(game, q_tables, depth=depth_limit)
-        
+            agent_name = agentO.__name__  # Get the agent's name
+
         if move is None:
             print("Error: Agent returned None move")
             break
-            
+
+        print(f"Player {game.current_player} ({agent_name}) makes move: {move}")  # Print the move
         game.make_move(move)
         moves_made += 1
-        
-    return game.check_winner(), moves_made
 
-def evaluate_algorithms(game_class, q_tables, episodes=100, depth_limit=4, output_file=None):
+    winner = game.check_winner()
+    return winner, moves_made
+
+def evaluate_algorithms(game_class, q_tables, episodes=100, depth_limit=4, output_file=None, visualizer=None):
+    print(f"Evaluating game: {game_class.__name__}")  # Add this line
+
     from agents import (
         agent_wrapper_minimax, 
         agent_wrapper_minimax_ab, 
@@ -121,6 +167,7 @@ def evaluate_algorithms(game_class, q_tables, episodes=100, depth_limit=4, outpu
     }
     
     results = {}
+    move_history = {}  # For tracking move counts
     
     for x_name, x_agent in agents.items():
         for o_name, o_agent in agents.items():
@@ -135,6 +182,7 @@ def evaluate_algorithms(game_class, q_tables, episodes=100, depth_limit=4, outpu
                 "time": 0
             }
             
+            move_history[match_key] = []
             total_moves = 0
             start_time = time.time()
             
@@ -142,6 +190,7 @@ def evaluate_algorithms(game_class, q_tables, episodes=100, depth_limit=4, outpu
                 game = game_class()
                 winner, moves = play_once(game, x_agent, o_agent, q_tables, depth_limit)
                 total_moves += moves
+                move_history[match_key].append(moves)
                 
                 if winner == "X":
                     results[match_key]["X_wins"] += 1
@@ -158,6 +207,9 @@ def evaluate_algorithms(game_class, q_tables, episodes=100, depth_limit=4, outpu
                   f"Draws: {results[match_key]['Draws']}, " +
                   f"Avg moves: {results[match_key]['avg_moves']:.1f}")
     
+    # Add move history for visualization
+    results['move_history'] = move_history
+    
     # Save results to file if specified
     if output_file:
         with open(output_file, 'w', newline='') as csvfile:
@@ -166,16 +218,22 @@ def evaluate_algorithms(game_class, q_tables, episodes=100, depth_limit=4, outpu
             
             writer.writeheader()
             for match, data in results.items():
-                row = {
-                    'Match': match,
-                    'X_wins': data['X_wins'],
-                    'O_wins': data['O_wins'],
-                    'Draws': data['Draws'],
-                    'avg_moves': f"{data['avg_moves']:.1f}",
-                    'time': f"{data['time']:.2f}s"
-                }
-                writer.writerow(row)
+                if match != 'move_history':  # Skip the move history when writing to CSV
+                    row = {
+                        'Match': match,
+                        'X_wins': data['X_wins'],
+                        'O_wins': data['O_wins'],
+                        'Draws': data['Draws'],
+                        'avg_moves': f"{data['avg_moves']:.1f}",
+                        'time': f"{data['time']:.2f}s"
+                    }
+                    writer.writerow(row)
         
         print(f"Results saved to {output_file}")
+    
+    # Generate visualizations if visualizer is provided
+    if visualizer:
+        game_type = game_class.__name__.lower()
+        visualizer.save_evaluation_results(results, game_type)
     
     return results

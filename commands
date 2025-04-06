@@ -1,0 +1,4 @@
+python3 main.py --game connect_4 --qtable_x_file connect_4_x_default.pkl --qtable_o_file connect_4_o_default.pkl --viz_dir connect_4_visualizations train --train_as X --episodes 10000 --opponent default --depth_limit 4
+
+
+python3 main.py --game connect_4 --qtable_x_file connect_4_x_minimax_ab.pkl --qtable_o_file connect_4_o_minimax_ab.pkl --viz_dir connect_4_visualizations train --train_as O --episodes 10000 --opponent minimax_ab --depth_limit 4

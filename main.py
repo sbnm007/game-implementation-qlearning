@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import os
 from games import TicTacToe, Connect4
 from agents import (
     agent_wrapper_minimax, 
@@ -9,6 +10,7 @@ from agents import (
     agent_wrapper_random
 )
 from utils import load_q_table, save_q_table, train_qlearning, evaluate_algorithms, play_once
+from visualizations import Visualizer
 
 def main():
     parser = argparse.ArgumentParser()
@@ -20,6 +22,8 @@ def main():
                     help="File to save/load Q-table for X player")
     parser.add_argument("--qtable_o_file", type=str, default="qtable_o.pkl", 
                     help="File to save/load Q-table for O player")
+    parser.add_argument("--viz_dir", type=str, default="visualizations",
+                    help="Directory for visualization output")
     
     # Mode selection
     subparsers = parser.add_subparsers(dest="mode", help="Operation mode")
@@ -64,6 +68,13 @@ def main():
     play_parser.add_argument("--depth_limit", type=int, default=None, 
                           help="Depth limit for minimax")
     
+    # New visualize mode
+    viz_parser = subparsers.add_parser("visualize", help="Generate visualizations from existing data")
+    viz_parser.add_argument("--q_file", type=str, required=True,
+                         help="Q-table file to visualize")
+    viz_parser.add_argument("--player", type=str, choices=["X", "O"], default="X",
+                         help="Which player's Q-table to visualize")
+    
     args = parser.parse_args()
     
     # Game choice
@@ -75,6 +86,9 @@ def main():
             args.depth_limit = 9  # Full depth for Tic Tac Toe
         else:
             args.depth_limit = 4  # Limited depth for Connect4
+    
+    # Create visualizer
+    visualizer = Visualizer(output_dir=args.viz_dir)
     
     # Load separate Q-tables for X and O
     q_table_x = load_q_table(args.qtable_x_file)
@@ -90,12 +104,14 @@ def main():
         if args.train_as == "X":
             train_qlearning(GameClass, q_table_x, episodes=args.episodes, 
                         alpha=args.alpha, gamma=args.gamma, epsilon=args.epsilon, 
-                        opponent=args.opponent, q_player="X", depth_limit=args.depth_limit)
+                        opponent=args.opponent, q_player="X", depth_limit=args.depth_limit,
+                        visualizer=visualizer)
             save_q_table(q_table_x, args.qtable_x_file)
         else:  # Train as O
             train_qlearning(GameClass, q_table_o, episodes=args.episodes,
                         alpha=args.alpha, gamma=args.gamma, epsilon=args.epsilon,
-                        opponent=args.opponent, q_player="O", depth_limit=args.depth_limit)
+                        opponent=args.opponent, q_player="O", depth_limit=args.depth_limit,
+                        visualizer=visualizer)
             save_q_table(q_table_o, args.qtable_o_file)
         
     elif args.mode == "evaluate":
@@ -106,9 +122,18 @@ def main():
             q_tables,
             episodes=args.episodes,
             depth_limit=args.depth_limit,
-            output_file=args.output
+            output_file=args.output,
+            visualizer=visualizer
         )
+    
+    elif args.mode == "visualize":
+        # Load Q-table
+        q_table = load_q_table(args.q_file)
         
+        # Visualize Q-table
+        game_type = GameClass.__name__.lower()
+        visualizer.visualize_q_table(q_table, game_type, args.player)
+
     elif args.mode == "play":
         # Select agents
         if args.algorithm == "minimax":
