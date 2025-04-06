@@ -139,9 +139,11 @@ def play_once(game, agentX, agentO, q_tables=None, depth_limit=4):
         if move is None:
             print("Error: Agent returned None move")
             break
+        
+         # Add this line to print the board after each move
 
-        print(f"Player {game.current_player} ({agent_name}) makes move: {move}")  # Print the move
         game.make_move(move)
+        game.print_board() 
         moves_made += 1
 
     winner = game.check_winner()

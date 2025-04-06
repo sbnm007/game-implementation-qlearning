@@ -163,7 +163,7 @@ def main():
                 results[winner] += 1
             
             # Print progress periodically
-            if (i+1) % (args.episodes // 10) == 0:
+            if (i+1) % max(1, args.episodes // 10) == 0:
                 print(f"Progress: {i+1}/{args.episodes} games")
         
         # Print final results

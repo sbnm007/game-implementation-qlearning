@@ -4,6 +4,8 @@
 #csv
 *.csv
 
+*.mkv
+
 # Directories
 __pycache__/
 connect_4_visualizations/

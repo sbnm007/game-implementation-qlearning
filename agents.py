@@ -1,8 +1,10 @@
 import random
 import math
 
-# Core agent implementation
+
 def minimax(game, depth=9, alpha=None, beta=None):
+    
+
     # If terminal or at depth limit, return utility
     if game.is_terminal() or depth == 0:
         w = game.check_winner()
@@ -45,7 +47,7 @@ def minimax(game, depth=9, alpha=None, beta=None):
                 if beta <= alpha:
                     break
         return (best_val, best_move)
-
+    
 def default_agent(game):
     # If can win, do it. If need to block, do it. Else random.
     for move in game.get_legal_moves():

@@ -32,6 +32,11 @@ class TicTacToe:
             return "Draw"
         return None
 
+    def print_board(self):
+        for i in range(0, 9, 3):
+            print("|" + "|".join(self.board[i:i+3]) + "|")
+        print("-" * 9)  # Separator line
+
     def state_key(self):
         return "".join(self.board) + self.current_player
 
@@ -54,11 +59,17 @@ class Connect4:
         return [c for c in range(self.cols) if self.board[0][c] == " "]
 
     def make_move(self, col):
-        # Place piece at lowest available row
-        for r in range(self.rows - 1, -1, -1):
-            if self.board[r][col] == " ":
-                self.board[r][col] = self.current_player
-                break
+        try:
+            for r in range(self.rows - 1, -1, -1):
+                if self.board[r][col] == " ":
+                    self.board[r][col] = self.current_player
+                    #print(f"Player {self.current_player} made move at row: {r}, col: {col}")  # Print the move
+                    break
+            else:
+                raise ValueError("Column is full")  # Raise exception if column is full
+        except ValueError as e:
+            print(f"Error: Invalid move - {e}")
+            raise  # Re-raise the exception to stop the game
         self.current_player = "O" if self.current_player == "X" else "X"
 
     def is_terminal(self):
@@ -89,3 +100,9 @@ class Connect4:
 
     def state_key(self):
         return "".join("".join(row) for row in self.board) + self.current_player
+
+    def print_board(self):
+        for row in self.board:
+            print("|" + "|".join(row) + "|")
+        print("-" * (self.cols * 2 + 1))  # Separator line
+        print(" " + " ".join(str(i) for i in range(self.cols)))  # Column numbers
